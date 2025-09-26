@@ -1,54 +1,73 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Minimal Map</title>
-    <style>html,body,#map{height:100%;margin:0}</style>
-    <script>
-      // A compact minimal-ish style (you can tweak per featureType/elementType)
-      const minimalStyle = [
-        { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-        { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-        { featureType: "road", elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: 40 }] },
-        { featureType: "water", stylers: [{ saturation: -20 }] },
-        { featureType: "administrative", elementType: "labels", stylers: [{ lightness: 40 }] },
-        { elementType: "labels.text.stroke", stylers: [{ visibility: "off" }] },
-        { elementType: "geometry", stylers: [{ saturation: -80 }] },
-      ];
+<head>
+  <meta charset="utf-8">
+  <title>Plastics Map — Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html,body,#map{height:100%;margin:0}
+    #log{position:absolute;top:10px;left:10px;background:rgba(255,255,255,.95);
+         padding:10px 12px;border-radius:8px;max-width:360px;font:13px/1.35 system-ui,Arial}
+    #log code{font-family:ui-monospace,Consolas,monospace}
+  </style>
+  <script>
+    const minimalStyle = [
+      { featureType: "poi", stylers: [{ visibility: "off" }] },
+      { featureType: "transit", stylers: [{ visibility: "off" }] },
+      { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+      { elementType: "labels.text.stroke", stylers: [{ visibility: "off" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ saturation: -100 }, { lightness: 40 }] },
+      { elementType: "geometry", stylers: [{ saturation: -80 }] },
+      { featureType: "water", stylers: [{ saturation: -20 }] },
+    ];
 
-            async function initMap() {
+    function log(msg){
+      const el = document.getElementById('log');
+      el.innerHTML += `<div>${msg}</div>`;
+      console.log(msg.replace(/<[^>]*>/g,''));
+    }
+
+    async function initMap(){
+      try{
         const { Map } = await google.maps.importLibrary("maps");
         const map = new Map(document.getElementById("map"), {
-            center: { lat: 47.0, lng: 19.0 },
-            zoom: 7,
-            disableDefaultUI: true,
-            styles: minimalStyle,
+          center: { lat: 47.1, lng: 19.3 }, zoom: 7,
+          disableDefaultUI: true, gestureHandling: "greedy", styles: minimalStyle
         });
+        log("✅ Map JS loaded and initialized.");
 
-        // 👇 Add your data layer here
+        // ---- Try KML first ----
+        const kmlUrl = "https://geemese.github.io/frccs-plastics-map/plastics.kml"; // <-- check this path
         const kmlLayer = new google.maps.KmlLayer({
-            url: 'https://yourhost.com/yourmap.kml',
-            map: map
+          url: kmlUrl, map: map, preserveViewport: false, suppressInfoWindows: false
         });
-        }
-
-
-
-
-        // Example marker (use your dataset here)
-        new google.maps.Marker({
-          position: { lat: 47.4979, lng: 19.0402 },
-          map,
-          title: "Budapest",
+        kmlLayer.addListener('status_changed', ()=>{
+          // @ts-ignore: status is readable at runtime
+          const status = kmlLayer.getStatus ? kmlLayer.getStatus() : kmlLayer.status;
+          log(`KML status: <code>${status || '(unknown)'}</code> for <code>${kmlUrl}</code>`);
+          if (status && String(status) !== 'OK'){
+            log("❗ If KML fails, try GeoJSON (see commented code).");
+          }
         });
-      
-      window.initMap = initMap;
-    </script>
-    <script async defer
-      src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
-    </script>
-  </head>
-  <body><div id="map"></div></body>
+
+        // ---- Fallback: GeoJSON (uncomment these 4 lines if you have plastics.geojson) ----
+        // const geoUrl = "https://geemese.github.io/frccs-plastics-map/plastics.geojson";
+        // map.data.loadGeoJson(geoUrl, {}, ()=>{
+        //   log(`✅ GeoJSON loaded: <code>${geoUrl}</code>`);
+        // });
+
+      }catch(e){
+        log("❌ Failed to init map. See console for details.");
+        console.error(e);
+      }
+    }
+    window.initMap = initMap;
+  </script>
+  <!-- Replace with your real key -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&callback=initMap"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="log"><strong>Diagnostics</strong></div>
+</body>
 </html>
-
